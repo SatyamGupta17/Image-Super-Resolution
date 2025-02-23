@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Super-Resolution</title>
+    <style>
+        /* General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to right, #1e3c72, #2a5298);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        input, button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        input {
+            background: #ffffff;
+            color: #333;
+            padding: 8px;
+        }
+
+        button {
+            background: #ff8c00;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #ff6b00;
+        }
+
+        /* Image Comparison Container (Reduced to 300px) */
+        .comparison-container {
+            position: relative;
+            width: 300px;
+            height: auto;
+            margin: 20px auto;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .comparison-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%; /* Default width of original image visibility */
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .image-overlay img {
+            display: block;
+            width: 300px; /* Maintain full width of original image */
+        }
+
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: white;
+            cursor: ew-resize;
+            z-index: 3;
+            transform: translateX(-50%);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 30px;
+            padding: 15px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        Image Super-Resolution Using AI
+    </header>
+
+    <!-- Form Section -->
+    <div class="form-container">
+        <h1>Upload Image for Enhancement</h1>
+        <form action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept="image/*" required>
+            <button type="submit">Enhance Image</button>
+        </form>
+    </div>
+    {% if input_image and output_image %}
+        <div class="comparison-container" id="comparisonContainer">
+            <img src="{{ output_image }}" alt="Enhanced Image">
+            <div class="image-overlay" id="imageOverlay">
+                <img src="{{ input_image }}" alt="Original Image">
+            </div>
+            <div class="slider" id="slider"></div>
+        </div>
+    {% endif %}
+    <footer>
+        &copy; 2025 Image Super-Resolution | Developed by Satyam Gupta
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const slider = document.getElementById("slider");
+            const imageOverlay = document.getElementById("imageOverlay");
+            let isDragging = false;
+
+            slider.addEventListener("mousedown", function() {
+                isDragging = true;
+            });
+
+            document.addEventListener("mouseup", function() {
+                isDragging = false;
+            });
+
+            document.addEventListener("mousemove", function(event) {
+                if (isDragging) {
+                    let container = document.getElementById("comparisonContainer").getBoundingClientRect();
+                    let position = event.clientX - container.left;
+
+                    if (position >= 0 && position <= container.width) {
+                        let widthPercentage = (position / container.width) * 100;
+                        imageOverlay.style.width = widthPercentage + "%";
+                        slider.style.left = widthPercentage + "%";
+                    }
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
