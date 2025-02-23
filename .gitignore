@@ -1,6 +1,6 @@
 # folder
 .vscode
-
+./dataset
 # file type
 *.svg
 *.pyc

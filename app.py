@@ -23,7 +23,7 @@ model = model.to(device)
 
 @app.route('/')
 def home():
-    return render_template('index.html', input_image=None, output_image=None)  # Both images initially None
+    return render_template('index.html', input_image=None, output_image=None) 
 
 @app.route('/predict', methods=['POST'])
 def predict():
