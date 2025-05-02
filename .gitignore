@@ -9,4 +9,14 @@
 *.caffemodel
 *.mat
 *.npy
-
+/images
+/mirflickr
+/degraded
+/augmented
+/uploads
+/original
+/data 
+/LR
+/HR 
+/source
+/eccv_2014_deepresolution.pdf
