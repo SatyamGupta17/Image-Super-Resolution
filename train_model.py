@@ -128,8 +128,6 @@ hr_images = hr_images / 255.
 #Split to train and test
 lr_train, lr_test, hr_train, hr_test = train_test_split(lr_images, hr_images, test_size=0.33, random_state=42)
 
-
-
 hr_shape = (hr_train.shape[1], hr_train.shape[2], hr_train.shape[3])
 lr_shape = (lr_train.shape[1], lr_train.shape[2], lr_train.shape[3])
 
