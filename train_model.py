@@ -173,6 +173,9 @@ for e in range(epochs):
     #Create empty lists to populate gen and disc losses. 
     g_losses = []
     d_losses = []
+    g_loss_log = []
+    d_loss_log = [] 
+
     
     #Enumerate training over batches. 
     for b in tqdm(range(len(train_hr_batches))):
@@ -210,8 +213,16 @@ for e in range(epochs):
     #Calculate the average losses for generator and discriminator
     g_loss = np.sum(g_losses, axis=0) / len(g_losses)
     d_loss = np.sum(d_losses, axis=0) / len(d_losses)
-    
+    g_loss_epoch = np.mean(g_losses)
+    d_loss_epoch = np.mean(d_losses)
+
+    #Log the losses
+    g_loss_log.append(g_loss_epoch)
+    d_loss_log.append(d_loss_epoch)
     #Report the progress during training. 
     if (e + 1) % 5 == 0:
         print("epoch:", e+1 ,"g_loss:", g_loss, "d_loss:", d_loss)
         generator.save("GAN/gen_e_"+ str(e+1) +".h5")
+    
+    with open("training_log.txt", "a") as log_file:
+        log_file.write(f"Epoch {e+1}: G_Loss={g_loss_epoch:.5f}, D_Loss={d_loss_epoch:.5f}\n")
