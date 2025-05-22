@@ -12,12 +12,11 @@ MODEL_PATH = "GAN/gen_e_20.h5"
 IMG_EXT = ".png"   
 SHOW_EXAMPLES = 3    
 
-def load_images(lr_dir, hr_dir):
+def load_images(lr_dir, hr_dir, max_images = 10):
     lr_images = []
     hr_images = []
-    lr_list = sorted(os.listdir(lr_dir))
-    hr_list = sorted(os.listdir(hr_dir))
-
+    lr_list = sorted(os.listdir(lr_dir))[:max_images]
+    hr_list = sorted(os.listdir(hr_dir))[:max_images]
     for lr_name, hr_name in zip(lr_list, hr_list):
         lr = cv2.imread(os.path.join(lr_dir, lr_name))
         hr = cv2.imread(os.path.join(hr_dir, hr_name))
@@ -30,7 +29,7 @@ def load_images(lr_dir, hr_dir):
 
     return np.array(lr_images), np.array(hr_images)
 
-lr_images, hr_images = load_images(LR_DIR, HR_DIR)
+lr_images, hr_images = load_images(LR_DIR, HR_DIR, 10)
 
 generator = load_model(MODEL_PATH, compile=False)
  
