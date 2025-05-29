@@ -27,7 +27,7 @@ def load_images(lr_dir, hr_dir, max_images = 20):
 
     return np.array(lr_images), np.array(hr_images)
 
-def load_images_new(lr_dir, hr_dir, max_images=20, lr_size=(32, 32), hr_size=(128, 128)):
+def load_images_new(lr_dir, hr_dir, max_images=20, lr_size=(128, 128), hr_size=(512, 512)):
     lr_images = []
     hr_images = []
     lr_list = sorted(os.listdir(lr_dir))[:max_images]
@@ -149,19 +149,19 @@ def plot_sample(lr_img, sr_img, hr_img, index):
     plt.savefig(f"results/comparison_{index}.png")
     plt.close()
     
-LR_DIR = "LR"    
-HR_DIR = "HR"   
+LR_DIR = "LR1"    
+HR_DIR = "HR1"   
 MODEL_PATH = "new_GAN/gen_e_20.h5"   
 # SHOW_EXAMPLES = 3     
 
 
-lr_ip = Input(shape=(64, 64, 3)) 
+lr_ip = Input(shape=(128, 128, 3)) 
 generator = create_gen(lr_ip, num_res_block=16)
 generator.load_weights(MODEL_PATH)
 lr_images, hr_images = load_images_new(LR_DIR, HR_DIR, 100) 
 psnr_scores, ssim_scores = evaluate_model(generator, lr_images, hr_images) 
 
-scores = [(i, psnr_scores[i], ssim_scores[i], (psnr_scores[i] + ssim_scores[i]*100)) for i in range(len(psnr_scores))]
+scores = [(i, psnr_scores[i], ssim_scores[i], (psnr_scores[i])) for i in range(len(psnr_scores))]
 top_10 = sorted(scores, key=lambda x: x[3], reverse=True)[:10]
 print("\nTop 10 images based on PSNR + SSIM:")
 for idx, ps, ss, _ in top_10:

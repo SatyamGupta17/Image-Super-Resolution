@@ -18,16 +18,13 @@
 /data 
 /source
 /eccv_2014_deepresolution.pdf
-/models
+/models 
 /venv
-/HR
-/LR
+/env
 /HR1
 /LR1
 /HR2
 /LR2
-/GAN 
-/new_GAN
 /result
 /results
 
