@@ -16,10 +16,8 @@ def res_block(ip):
     res_model = Conv2D(64, (3,3), padding = "same")(ip)
     res_model = BatchNormalization(momentum = 0.5)(res_model)
     res_model = PReLU(shared_axes = [1,2])(res_model)
-    
     res_model = Conv2D(64, (3,3), padding = "same")(res_model)
     res_model = BatchNormalization(momentum = 0.5)(res_model)
-    
     return add([ip,res_model])
 
 
@@ -179,47 +177,31 @@ for e in range(epochs):
     
     #Enumerate training over batches. 
     for b in tqdm(range(len(train_hr_batches))):
-        lr_imgs = train_lr_batches[b] #Fetch a batch of LR images for training
-        hr_imgs = train_hr_batches[b] #Fetch a batch of HR images for training
+        lr_imgs = train_lr_batches[b]
+        hr_imgs = train_hr_batches[b]
         
-        fake_imgs = generator.predict_on_batch(lr_imgs) #Fake images
-        
-        #First, train the discriminator on fake and real HR images. 
+        fake_imgs = generator.predict_on_batch(lr_imgs)  
         discriminator.trainable = True
         d_loss_gen = discriminator.train_on_batch(fake_imgs, fake_label)
-        d_loss_real = discriminator.train_on_batch(hr_imgs, real_label)
-        
-        #Now, train the generator by fixing discriminator as non-trainable
+        d_loss_real = discriminator.train_on_batch(hr_imgs, real_label) 
         discriminator.trainable = False
-        
-        #Average the discriminator loss, just for reporting purposes. 
+         
         d_loss = 0.5 * np.add(d_loss_gen, d_loss_real) 
-        
-        #Extract VGG features, to be used towards calculating loss
         image_features = vgg.predict(hr_imgs)
      
-        #Train the generator via GAN. 
-        #Remember that we have 2 losses, adversarial loss and content (VGG) loss
         g_loss, _, _ = gan_model.train_on_batch([lr_imgs, hr_imgs], [real_label, image_features])
         
-        #Save losses to a list so we can average and report. 
         d_losses.append(d_loss)
         g_losses.append(g_loss)
         
-    #Convert the list of losses to an array to make it easy to average    
     g_losses = np.array(g_losses)
     d_losses = np.array(d_losses)
-    
-    #Calculate the average losses for generator and discriminator
     g_loss = np.sum(g_losses, axis=0) / len(g_losses)
     d_loss = np.sum(d_losses, axis=0) / len(d_losses)
     g_loss_epoch = np.mean(g_losses)
     d_loss_epoch = np.mean(d_losses)
-
-    #Log the losses
     g_loss_log.append(g_loss_epoch)
-    d_loss_log.append(d_loss_epoch)
-    #Report the progress during training. 
+    d_loss_log.append(d_loss_epoch) 
     if (e + 1) % 5 == 0:
         print("epoch:", e+1 ,"g_loss:", g_loss, "d_loss:", d_loss)
         generator.save("GAN/gen_e_"+ str(e+1) +".h5")

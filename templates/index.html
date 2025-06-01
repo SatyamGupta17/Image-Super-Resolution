@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Image Super-Resolution</title>
     <style>
         /* General Styles */
@@ -67,47 +67,67 @@
             background: #ff6b00;
         }
 
-        /* Image Comparison Container (Reduced to 300px) */
-        .comparison-container {
-            position: relative;
-            width: 300px;
-            height: auto;
-            margin: 20px auto;
-            overflow: hidden;
+        /* Image Display */
+        .image-display {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .image-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
             border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
         }
 
-        .comparison-container img {
-            width: 100%;
-            height: auto;
-            display: block;
+        .image-box img {
+            max-width: 300px;
+            border-radius: 10px;
         }
 
-        .image-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 50%; /* Default width of original image visibility */
-            overflow: hidden;
-            z-index: 2;
+        .download-btn {
+            display: inline-block;
+            margin-top: 10px;
+            background: #28a745;
+            padding: 8px 15px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-decoration: none;
         }
 
-        .image-overlay img {
-            display: block;
-            width: 300px; /* Maintain full width of original image */
+        .download-btn:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
-        .slider {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            width: 4px;
-            height: 100%;
-            background: white;
-            cursor: ew-resize;
-            z-index: 3;
-            transform: translateX(-50%);
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* Footer */
@@ -131,50 +151,90 @@
     <!-- Form Section -->
     <div class="form-container">
         <h1>Upload Image for Enhancement</h1>
-        <form action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" accept="image/*" required>
-            <button type="submit">Enhance Image</button>
+        <form id="uploadForm" action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data">
+            <input id="fileInput" type="file" name="file" accept="image/*" required />
+            <button id="submitBtn" type="submit" disabled>
+                <span id="submitText">Enhance Image</span>
+                <span id="submitSpinner" class="spinner"></span>
+            </button>
         </form>
     </div>
+
     {% if input_image and output_image %}
-        <div class="comparison-container" id="comparisonContainer">
-            <img src="{{ output_image }}" alt="Enhanced Image">
-            <div class="image-overlay" id="imageOverlay">
-                <img src="{{ input_image }}" alt="Original Image">
-            </div>
-            <div class="slider" id="slider"></div>
+    <!-- Image Comparison Display -->
+    <div class="image-display">
+        <div class="image-box">
+            <h3>Original Image</h3>
+            <img src="{{ input_image }}" alt="Original" />
         </div>
+        <div class="image-box">
+            <h3>Enhanced Image</h3>
+            <img id="enhancedImage" src="{{ output_image }}" alt="Enhanced" />
+            <br />
+            <a id="downloadBtn" class="download-btn" href="{{ output_image }}" download="enhanced_image.png">
+                Download Enhanced Image
+                <span id="downloadSpinner" class="spinner"></span>
+            </a>
+        </div>
+    </div>
     {% endif %}
+
+    <!-- Footer -->
     <footer>
-        &copy; 2025 Image Super-Resolution 
+        &copy; 2025 Image Super-Resolution
     </footer>
 
+    <!-- Script -->
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const slider = document.getElementById("slider");
-            const imageOverlay = document.getElementById("imageOverlay");
-            let isDragging = false;
+        document.addEventListener("DOMContentLoaded", function () {
+            const fileInput = document.getElementById("fileInput");
+            const submitBtn = document.getElementById("submitBtn");
+            const submitText = document.getElementById("submitText");
+            const submitSpinner = document.getElementById("submitSpinner");
+            const uploadForm = document.getElementById("uploadForm");
+            const downloadBtn = document.getElementById("downloadBtn");
+            const downloadSpinner = document.getElementById("downloadSpinner");
 
-            slider.addEventListener("mousedown", function() {
-                isDragging = true;
+            // Enable submit only if file selected
+            fileInput.addEventListener("change", function () {
+                submitBtn.disabled = !fileInput.files.length;
             });
 
-            document.addEventListener("mouseup", function() {
-                isDragging = false;
+            // Disable button after submission
+            uploadForm.addEventListener("submit", function () {
+                submitBtn.disabled = true;
+                submitText.textContent = "Processing...";
+                submitSpinner.style.display = "inline-block";
             });
 
-            document.addEventListener("mousemove", function(event) {
-                if (isDragging) {
-                    let container = document.getElementById("comparisonContainer").getBoundingClientRect();
-                    let position = event.clientX - container.left;
-
-                    if (position >= 0 && position <= container.width) {
-                        let widthPercentage = (position / container.width) * 100;
-                        imageOverlay.style.width = widthPercentage + "%";
-                        slider.style.left = widthPercentage + "%";
-                    }
-                }
-            });
+            // Enhanced download button logic
+            if (downloadBtn) {
+                downloadBtn.addEventListener("click", function(e) {
+                    // Show loading spinner
+                    downloadSpinner.style.display = "inline-block";
+                    downloadBtn.style.pointerEvents = "none";
+                    
+                    // Create a temporary anchor tag to force download
+                    const tempLink = document.createElement('a');
+                    tempLink.style.display = 'none';
+                    tempLink.href = this.href;
+                    tempLink.download = this.download || 'enhanced_image.png';
+                    
+                    // Append to body, click and remove
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                    
+                    // Hide spinner after a delay (to ensure it's visible)
+                    setTimeout(() => {
+                        downloadSpinner.style.display = "none";
+                        downloadBtn.style.pointerEvents = "auto";
+                    }, 1000);
+                    
+                    // Prevent default anchor behavior
+                    e.preventDefault();
+                });
+            }
         });
     </script>
 

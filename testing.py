@@ -151,7 +151,7 @@ def plot_sample(lr_img, sr_img, hr_img, index):
     
 LR_DIR = "LR1"    
 HR_DIR = "HR1"   
-MODEL_PATH = "new_GAN/gen_e_20.h5"   
+MODEL_PATH = "models/3051crop_weight_200.h5"   
 # SHOW_EXAMPLES = 3     
 
 

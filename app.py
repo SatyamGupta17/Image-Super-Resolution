@@ -1,29 +1,35 @@
 import os
-import os.path as osp
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
 import cv2
 import numpy as np
-import torch
-import RRDBNet_arch as arch
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for
+from keras.models import load_model, Model
+from keras.layers import Input
+from prediction import create_gen
+from prediction1 import predict_original_size
 
+# Flask app setup
 app = Flask(__name__)
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure directories exist
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("results", exist_ok=True)
+# Model loading
+MODEL_PATH = "GAN/gen_e_20.h5"
+generator_model = None
 
-# Load the model
-model_path = 'models/RRDB_ESRGAN_x4.pth'  # Ensure the model file exists
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def load_generator_model():
+    global generator_model
+    dummy_input = Input(shape=(None, None, 3))
+    generator_model = create_gen(dummy_input, num_res_block=16)
+    generator_model.load_weights(MODEL_PATH)
 
-model = arch.RRDBNet(3, 3, 64, 23, gc=32)
-model.load_state_dict(torch.load(model_path, map_location=device), strict=True)
-model.eval()
-model = model.to(device)
+# Load model at startup
+load_generator_model()
 
 @app.route('/')
 def home():
-    return render_template('index.html', input_image=None, output_image=None) 
+    return render_template('index.html', lr_url=None, sr_url=None, comp_url=None)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -34,39 +40,29 @@ def predict():
     if file.filename == '':
         return redirect(url_for('home'))
 
-    filename = file.filename
-    input_path = os.path.join("uploads", filename)
-    file.save(input_path)  # Save original image
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+    print(f"Prediction started for uploaded file: {filename}")
+    try:
+        # Read the image using OpenCV
+        lr_img = cv2.imread(filepath)
+        if lr_img is None:
+            return "Could not read the image file", 400 
+        lr_img = cv2.cvtColor(lr_img, cv2.COLOR_BGR2RGB)
+         
+        result = predict_original_size(filepath)  
+        if not result or 'urls' not in result:
+            return "Prediction failed", 500
+         
+        return render_template('index.html',
+                            input_image=result['urls']['lr'],
+                            output_image=result['urls']['sr'],
+                            comparison_image=result['urls']['hr'])
+    
+    except Exception as e:
+        print(f"Error during prediction: {str(e)}")
+        return f"An error occurred: {str(e)}", 500 
 
-    # Read and process image
-    img = cv2.imread(input_path, cv2.IMREAD_COLOR)
-    img = img * 1.0 / 255
-    img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float()
-    img_LR = img.unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        output = model(img_LR).data.squeeze().float().cpu().clamp_(0, 1).numpy()
-
-    output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
-    output = (output * 255.0).round().astype(np.uint8)
-
-    output_filename = f"{osp.splitext(filename)[0]}_result.png"
-    output_path = os.path.join("results", output_filename)
-    cv2.imwrite(output_path, output)  # Save processed image
-
-    return render_template(
-        'index.html',
-        input_image=url_for('get_upload', filename=filename),
-        output_image=url_for('get_result', filename=output_filename)
-    )
-
-@app.route('/uploads/<filename>')
-def get_upload(filename):
-    return send_from_directory("uploads", filename)
-
-@app.route('/results/<filename>')
-def get_result(filename):
-    return send_from_directory("results", filename)
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
