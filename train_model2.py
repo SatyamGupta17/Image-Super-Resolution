@@ -131,7 +131,7 @@ lr_list = os.listdir("LR")
 lr_images = [cv2.cvtColor(cv2.imread("LR/"+img), cv2.COLOR_BGR2RGB) for img in lr_list]
 hr_list = os.listdir("HR")
 hr_images = [cv2.cvtColor(cv2.imread("HR/"+img), cv2.COLOR_BGR2RGB) for img in hr_list]
-
+os.makedirs('GAN3', exist_ok=True)
 lr_images = np.array(lr_images) / 255.
 hr_images = np.array(hr_images) / 255.
 
@@ -158,7 +158,7 @@ gan_model = create_comb(generator, discriminator, vgg, lr_ip, hr_ip)
 gan_model.compile(loss=["binary_crossentropy", "mse"], loss_weights=[1e-3, 1], optimizer="adam")
 
 # Training loop (same as before but with adjusted parameters)
-batch_size = 1
+batch_size = 8
 train_lr_batches = []
 train_hr_batches = []
 for it in range(int(hr_train.shape[0] / batch_size)):
@@ -168,7 +168,7 @@ for it in range(int(hr_train.shape[0] / batch_size)):
     train_lr_batches.append(lr_train[start_idx:end_idx])
     
     
-epochs = 20
+epochs = 50
 #Enumerate training over epochs
 for e in range(epochs):
     
@@ -215,5 +215,5 @@ for e in range(epochs):
         generator.save("GAN3/gen_e_"+ str(e+1) +".keras")
     
     with open("new_training_log.txt", "a") as log_file:
-        log_file.write(f"Epoch {e+1}: G_Loss={g_loss_epoch:.5f}, D_Loss={d_loss_epoch:.5f}\n, -> g_loss = {g_loss}, d_loss = {d_loss}")
+        log_file.write(f"Epoch {e+1}: G_Loss={g_loss_epoch:.5f}, D_Loss={d_loss_epoch:.5f} -> g_loss = {g_loss}, d_loss = {d_loss}\n")
  

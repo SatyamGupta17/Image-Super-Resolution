@@ -18,4 +18,10 @@ Epoch 5: G_Loss=nan, D_Loss=nan
 , -> g_loss = nan, d_loss = [nan 0.5]Epoch 18: G_Loss=nan, D_Loss=nan
 , -> g_loss = nan, d_loss = [nan 0.5]Epoch 19: G_Loss=nan, D_Loss=nan
 , -> g_loss = nan, d_loss = [nan 0.5]Epoch 20: G_Loss=nan, D_Loss=nan
-, -> g_loss = nan, d_loss = [nan 0.5]
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 1: G_Loss=60.81820, D_Loss=583.44421
+, -> g_loss = 60.81820233330798, d_loss = [1.16644215e+03 4.46268657e-01]Epoch 2: G_Loss=54.02713, D_Loss=35.24702
+, -> g_loss = 54.02712625104989, d_loss = [70.02464461  0.46940299]Epoch 3: G_Loss=50.84664, D_Loss=85.73965
+, -> g_loss = 50.84663861545164, d_loss = [171.01362282   0.46567164]Epoch 4: G_Loss=49.57329, D_Loss=1.27339
+, -> g_loss = 49.5732931386179, d_loss = [2.08109842 0.46567164]Epoch 5: G_Loss=48.83698, D_Loss=1.39549
+, -> g_loss = 48.83698227583472, d_loss = [2.30964574 0.48134328]Epoch 6: G_Loss=48.12992, D_Loss=0.76798
+, -> g_loss = 48.12992206758528, d_loss = [1.04193305 0.49402985]

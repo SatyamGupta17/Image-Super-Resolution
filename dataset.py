@@ -4,16 +4,11 @@ import cv2
 train_dir = "mirflickr"
 hr_dir = "HR"
 lr_dir = "LR"
-
-# Create directories if they don't exist
+ 
 os.makedirs(hr_dir, exist_ok=True)
 os.makedirs(lr_dir, exist_ok=True)
-
-count = 0
-for img in os.listdir(train_dir):
-    if count > 1000: 
-        break
-    
+ 
+for img in os.listdir(train_dir): 
     img_path = os.path.join(train_dir, img)
     img_arr = cv2.imread(img_path)
 
@@ -26,5 +21,3 @@ for img in os.listdir(train_dir):
 
     cv2.imwrite(os.path.join(lr_dir, img), lr_img)
     cv2.imwrite(os.path.join(hr_dir, img), hr_img)
-
-    count += 1

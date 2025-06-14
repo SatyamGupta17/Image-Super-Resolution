@@ -138,7 +138,7 @@ lr_list = os.listdir("LR")
 lr_images = [cv2.cvtColor(cv2.imread("LR/"+img), cv2.COLOR_BGR2RGB) for img in lr_list]
 hr_list = os.listdir("HR")
 hr_images = [cv2.cvtColor(cv2.imread("HR/"+img), cv2.COLOR_BGR2RGB) for img in hr_list]
-
+os.makedirs('GAN2', exist_ok=True)
 lr_images = np.array(lr_images) / 255.
 hr_images = np.array(hr_images) / 255.
 
