@@ -225,12 +225,6 @@ def predict_original_size(image_path, save_dir="results"):
     plt.imsave(lr_path, degraded_dummy_shaved)
     plt.imsave(sr_path, output_shaved)
     plt.imsave(hr_path, ref_shaved)
-    
-    # Create and save comparison plot
-    # plot_comparison(degraded_dummy_shaved, output_shaved, ref_shaved, image_name, save_dir)
-    
-    # Calculate scores
-    # Upload to Cloudinary
     def upload_to_cloudinary(file_path, prefix):
         try:
             result = cloudinary.uploader.upload(

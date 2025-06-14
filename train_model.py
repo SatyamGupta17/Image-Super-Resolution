@@ -20,7 +20,6 @@ def res_block(ip):
     res_model = BatchNormalization(momentum = 0.5)(res_model)
     return add([ip,res_model])
 
-
 def upscale_block(ip):
     up_model = Conv2D(256, (3,3), padding="same")(ip)
     up_model = UpSampling2D( size = 2 )(up_model)

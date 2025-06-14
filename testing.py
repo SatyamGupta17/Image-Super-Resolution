@@ -149,9 +149,10 @@ def plot_sample(lr_img, sr_img, hr_img, index):
     plt.savefig(f"results/comparison_{index}.png")
     plt.close()
     
-LR_DIR = "LR1"    
-HR_DIR = "HR1"   
-MODEL_PATH = "models/3051crop_weight_200.h5"   
+LR_DIR = "LR"    
+HR_DIR = "HR"   
+# MODEL_PATH = "models/3051crop_weight_200.h5"   
+MODEL_PATH = "GAN/gen_e_20.h5"   
 # SHOW_EXAMPLES = 3     
 
 
@@ -169,4 +170,4 @@ for idx, ps, ss, _ in top_10:
     lr = lr_images[idx]
     hr = hr_images[idx]
     sr = generator.predict(np.expand_dims(lr, axis=0))[0]
-    plot_sample(lr, sr, hr, f"top_{idx}")
+    plot_sample(lr, sr, hr, f"top_{idx}_new")

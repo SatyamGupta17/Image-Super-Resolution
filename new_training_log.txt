@@ -1,0 +1,21 @@
+Epoch 1: G_Loss=64.16063, D_Loss=307.62315, -> g_loss = 64.16062791525428, d_loss = [6.14767946e+02 4.78358209e-01]
+Epoch 2: G_Loss=55.28320, D_Loss=0.87983, -> g_loss = 55.28320460319519, d_loss = [1.12534025 0.63432836]
+Epoch 3: G_Loss=53.03402, D_Loss=3.13414, -> g_loss = 53.03402447344652, d_loss = [5.6488691  0.61940299]
+Epoch 4: G_Loss=nan, D_Loss=nan, -> g_loss = nan, d_loss = [       nan 0.50522388]
+Epoch 5: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 6: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 7: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 8: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 9: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 10: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 11: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 12: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 13: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 14: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 15: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 16: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 17: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 18: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 19: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]Epoch 20: G_Loss=nan, D_Loss=nan
+, -> g_loss = nan, d_loss = [nan 0.5]
