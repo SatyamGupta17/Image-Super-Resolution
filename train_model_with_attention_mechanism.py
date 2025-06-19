@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from keras import Model
-from keras.layers import (Conv2D, PReLU, LeakyReLU, Dense, Input, add,Multiply, GlobalAveragePooling2D, Reshape, UpSampling2D, Flatten)
+from keras.layers import (Conv2D, PReLU, LeakyReLU, Dense, Input, add, Multiply, GlobalAveragePooling2D, Reshape, UpSampling2D, Flatten)
 from keras.applications import VGG19
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
@@ -35,22 +35,13 @@ def channel_attention(input_feature, ratio=8):
     return Multiply()([input_feature, cbam_feature])
 
 # Residual in Residual Block with Channel Attention
-def RRCA_block(ip, filters=64):
-    residual = ip*0.2
-    
-    # First conv block
-    model = Conv2D(filters, (3,3), padding='same')(ip)
-    model = PReLU(shared_axes=[1,2])(model)
-    
-    # Second conv block
-    model = Conv2D(filters, (3,3), padding='same')(model)
-    
-    # Add channel attention
-    model = channel_attention(model)
-    
-    # Add residual
-    model = add([model, residual])
-    return model
+def RRCA_block(ip, filters=64): 
+    x = Conv2D(64, (3,3), padding='same',
+              kernel_initializer='he_normal')(ip)  # Proper initialization
+    x = LeakyReLU(0.2)(x)
+    x = Conv2D(64, (3,3), padding='same',
+              kernel_initializer='he_normal')(x)
+    return add([x * 0.2, ip])  # Scaled residual
 
 def upscale_block(ip):
     up_model = Conv2D(256, (3,3), padding="same")(ip)
@@ -162,7 +153,7 @@ vgg = build_vgg((128,128,3))
 vgg.trainable = False
 
 gan_model = create_comb(generator, discriminator, vgg, lr_ip, hr_ip)
-gan_model.compile(loss=["binary_crossentropy", "mse"], loss_weights=[5e-3, 1], optimizer="adam")
+gan_model.compile(loss=["binary_crossentropy", "mse"], loss_weights=[1e-3, 1], optimizer="adam")
 
 # Training loop (same as before but with adjusted parameters)
 batch_size = 8 
@@ -178,7 +169,6 @@ for it in range(int(hr_train.shape[0] / batch_size)):
 epochs = 50
 #Enumerate training over epochs
 for e in range(epochs):
-    
     fake_label = np.zeros((batch_size, 1)) # Assign a label of 0 to all fake (generated images)
     real_label = np.ones((batch_size, 1)) # Assign a label of 1 to all real images.
     
