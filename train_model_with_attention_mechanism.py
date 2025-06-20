@@ -45,34 +45,34 @@ def channel_attention(input_feature, ratio=8):
 
 # 3. Stabilized Residual Block
 def RRCA_block(ip, filters=64, residual_scale=0.2):
-    residual = ip * residual_scale
+    residual = Conv2D(filters, 1, padding='same')(ip) * residual_scale  # 1x1 conv to match dimensions
     
     x = Conv2D(filters, 3, padding='same', kernel_initializer='he_normal')(ip)
     x = LeakyReLU(0.2)(x)
     x = Conv2D(filters, 3, padding='same', kernel_initializer='he_normal')(x)
     x = channel_attention(x)
-    return add([x, residual])
+    return add([x, residual])  # Now shapes will match
 
-# 4. Improved Generator
 def create_gen(gen_ip, num_rrca_blocks=16):
-    # Initial convolution with higher capacity
-    x = Conv2D(128, 3, padding='same', kernel_initializer='he_normal')(gen_ip)
+    # Initial convolution
+    x = Conv2D(64, 3, padding='same', kernel_initializer='he_normal')(gen_ip)
     x = PReLU(shared_axes=[1,2])(x)
     features = [x]
     
-    # Dense RRCA blocks
+    # RRCA blocks with consistent filter size
     for _ in range(num_rrca_blocks):
-        x = RRCA_block(x)
+        x = RRCA_block(x, filters=64)  # Fixed filter size
         features.append(x)
         if len(features) > 4:
             x = Concatenate()([x, features[-3]])
+            x = Conv2D(64, 1, kernel_initializer='he_normal')(x)  # Project back to 64 channels
     
     # Feature fusion
-    x = Conv2D(128, 1, kernel_initializer='he_normal')(Concatenate()(features[-3:]))
+    x = Conv2D(64, 1, kernel_initializer='he_normal')(Concatenate()(features[-3:]))
     
-    # Enhanced upsampling
+    # Upsampling
     x = Conv2D(256, 3, padding='same', kernel_initializer='he_normal')(x)
-    x = tf.nn.depth_to_space(x, 2)  # Better than UpSampling2D
+    x = tf.nn.depth_to_space(x, 2)
     
     x = Conv2D(256, 3, padding='same', kernel_initializer='he_normal')(x)
     x = tf.nn.depth_to_space(x, 2)
