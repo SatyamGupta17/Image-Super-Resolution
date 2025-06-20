@@ -1,184 +1,216 @@
 import os
 import cv2
 import numpy as np
-import tensorflow as tf
-from keras import Model, backend as K
-from keras.layers import (Conv2D, PReLU, LeakyReLU, Dense, Input, add, 
-                         Multiply, GlobalAveragePooling2D, Reshape, 
-                         UpSampling2D, Flatten, Concatenate)
+from keras import Model
+from keras.layers import (Conv2D, PReLU, LeakyReLU, Dense, Input, add, Multiply, GlobalAveragePooling2D, Reshape, UpSampling2D, Flatten)
 from keras.applications import VGG19
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-# ==================== CRITICAL IMPROVEMENTS ====================
-
-# 1. Gradient Penalty for WGAN-GP
-def gradient_penalty(discriminator, real_images, fake_images, batch_size):
-    alpha = tf.random.uniform([batch_size, 1, 1, 1], 0., 1.)
-    interpolated = real_images * alpha + fake_images * (1 - alpha)
-    
-    with tf.GradientTape() as tape:
-        tape.watch(interpolated)
-        pred = discriminator(interpolated)
-    grads = tape.gradient(pred, interpolated)
-    norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1,2,3]))
-    return tf.reduce_mean((norm - 1.)**2)
-
-# 2. Stabilized Channel Attention
+# Channel Attention Module
 def channel_attention(input_feature, ratio=8):
     channel = input_feature.shape[-1]
     
-    shared_layer = Dense(channel//ratio, activation='relu', kernel_initializer='he_normal')
-    final_layer = Dense(channel, kernel_initializer='he_normal')
+    # Shared layers
+    shared_layer_one = Dense(channel//ratio, activation='relu')
+    shared_layer_two = Dense(channel)
     
+    # Global Average Pooling
     avg_pool = GlobalAveragePooling2D()(input_feature)
     avg_pool = Reshape((1,1,channel))(avg_pool)
-    avg_pool = final_layer(shared_layer(avg_pool))
+    avg_pool = shared_layer_one(avg_pool)
+    avg_pool = shared_layer_two(avg_pool)
     
+    # Global Max Pooling
     max_pool = GlobalAveragePooling2D()(input_feature)
     max_pool = Reshape((1,1,channel))(max_pool)
-    max_pool = final_layer(shared_layer(max_pool))
+    max_pool = shared_layer_one(max_pool)
+    max_pool = shared_layer_two(max_pool)
     
+    # Add and sigmoid
     cbam_feature = add([avg_pool, max_pool])
     cbam_feature = PReLU(shared_axes=[1,2])(cbam_feature)
+    
+    # Multiply with input feature
     return Multiply()([input_feature, cbam_feature])
 
-# 3. Stabilized Residual Block
-def RRCA_block(ip, filters=64, residual_scale=0.2):
-    residual = Conv2D(filters, 1, padding='same')(ip) * residual_scale  # 1x1 conv to match dimensions
-    
-    x = Conv2D(filters, 3, padding='same', kernel_initializer='he_normal')(ip)
+# Residual in Residual Block with Channel Attention
+def RRCA_block(ip, filters=64): 
+    x = Conv2D(64, (3,3), padding='same',
+              kernel_initializer='he_normal')(ip)  # Proper initialization
     x = LeakyReLU(0.2)(x)
-    x = Conv2D(filters, 3, padding='same', kernel_initializer='he_normal')(x)
-    x = channel_attention(x)
-    return add([x, residual])  # Now shapes will match
+    x = Conv2D(64, (3,3), padding='same',
+              kernel_initializer='he_normal')(x)
+    return add([x * 0.2, ip])  # Scaled residual
 
+def upscale_block(ip):
+    up_model = Conv2D(256, (3,3), padding="same")(ip)
+    up_model = UpSampling2D( size = 2 )(up_model)
+    up_model = PReLU(shared_axes=[1,2])(up_model)
+    
+    return up_model
+
+# Generator with RRCA blocks
 def create_gen(gen_ip, num_rrca_blocks=16):
-    # Initial convolution
-    x = Conv2D(64, 3, padding='same', kernel_initializer='he_normal')(gen_ip)
-    x = PReLU(shared_axes=[1,2])(x)
-    features = [x]
+    # Initial layers
+    layers = Conv2D(64, (3,3), padding='same')(gen_ip)
+    layers = PReLU(shared_axes=[1,2])(layers)
     
-    # RRCA blocks with consistent filter size
+    # Long skip connection
+    long_skip = layers
+    
+    # RRCA blocks
     for _ in range(num_rrca_blocks):
-        x = RRCA_block(x, filters=64)  # Fixed filter size
-        features.append(x)
-        if len(features) > 4:
-            x = Concatenate()([x, features[-3]])
-            x = Conv2D(64, 1, kernel_initializer='he_normal')(x)  # Project back to 64 channels
+        layers = RRCA_block(layers)
     
-    # Feature fusion
-    x = Conv2D(64, 1, kernel_initializer='he_normal')(Concatenate()(features[-3:]))
+    # Post RRCA conv
+    layers = Conv2D(64, (3,3), padding='same')(layers)
+    layers = add([layers, long_skip])
     
-    # Upsampling
-    x = Conv2D(256, 3, padding='same', kernel_initializer='he_normal')(x)
-    x = tf.nn.depth_to_space(x, 2)
+    # Upsampling blocks
+    layers = upscale_block(layers)
+    layers = upscale_block(layers)
     
-    x = Conv2D(256, 3, padding='same', kernel_initializer='he_normal')(x)
-    x = tf.nn.depth_to_space(x, 2)
+    # Output layer
+    op = Conv2D(3, (9,9), padding='same', activation='tanh')(layers)
     
-    return Model(gen_ip, Conv2D(3, 9, padding='same', activation='tanh')(x))
+    return Model(inputs=gen_ip, outputs=op)
 
-# 5. Stabilized Discriminator
+# Discriminator (similar to SRGAN but without BN)
 def create_disc(disc_ip):
-    def conv_block(x, filters, strides=1):
-        x = Conv2D(filters, 3, strides=strides, padding='same', 
-                  kernel_initializer='he_normal')(x)
-        return LeakyReLU(0.2)(x)
+    df = 64
     
-    x = disc_ip
-    x = conv_block(x, 64)  # No BN!
-    x = conv_block(x, 64, 2)
-    x = conv_block(x, 128)
-    x = conv_block(x, 128, 2)
-    x = conv_block(x, 256)
-    x = conv_block(x, 256, 2)
-    x = conv_block(x, 512)
-    x = conv_block(x, 512, 2)
+    d1 = Conv2D(df, (3,3), strides=1, padding='same')(disc_ip)
+    d1 = LeakyReLU(alpha=0.2)(d1)
     
-    x = Flatten()(x)
-    x = Dense(1024, kernel_initializer='he_normal')(x)
-    x = LeakyReLU(0.2)(x)
-    return Model(disc_ip, Dense(1)(x))  # Linear activation for WGAN-GP
+    d2 = Conv2D(df, (3,3), strides=2, padding='same')(d1)
+    d2 = LeakyReLU(alpha=0.2)(d2)
+    
+    d3 = Conv2D(df*2, (3,3), strides=1, padding='same')(d2)
+    d3 = LeakyReLU(alpha=0.2)(d3)
+    
+    d4 = Conv2D(df*2, (3,3), strides=2, padding='same')(d3)
+    d4 = LeakyReLU(alpha=0.2)(d4)
+    
+    d5 = Conv2D(df*4, (3,3), strides=1, padding='same')(d4)
+    d5 = LeakyReLU(alpha=0.2)(d5)
+    
+    d6 = Conv2D(df*4, (3,3), strides=2, padding='same')(d5)
+    d6 = LeakyReLU(alpha=0.2)(d6)
+    
+    d7 = Conv2D(df*8, (3,3), strides=1, padding='same')(d6)
+    d7 = LeakyReLU(alpha=0.2)(d7)
+    
+    d8 = Conv2D(df*8, (3,3), strides=2, padding='same')(d7)
+    d8 = LeakyReLU(alpha=0.2)(d8)
+    
+    d8_5 = Flatten()(d8)
+    d9 = Dense(df*16)(d8_5)
+    d10 = LeakyReLU(alpha=0.2)(d9)
+    validity = Dense(1, activation='sigmoid')(d10)
 
-# ==================== TRAINING STABILIZATION ====================
+    return Model(disc_ip, validity)
 
-# 1. WGAN Loss Functions
-def discriminator_loss(real_output, fake_output, gp, lambda_gp=10):
-    return tf.reduce_mean(fake_output) - tf.reduce_mean(real_output) + lambda_gp * gp
+# Build VGG (same as before)
+def build_vgg(hr_shape):
+    vgg = VGG19(weights="imagenet", include_top=False, input_shape=hr_shape)
+    return Model(inputs=vgg.inputs, outputs=vgg.layers[10].output)
 
-def generator_loss(fake_output):
-    return -tf.reduce_mean(fake_output)
+# Combined model (same as before)
+def create_comb(gen_model, disc_model, vgg, lr_ip, hr_ip):
+    gen_img = gen_model(lr_ip)
+    gen_features = vgg(gen_img)
+    disc_model.trainable = False
+    validity = disc_model(gen_img)
+    return Model(inputs=[lr_ip, hr_ip], outputs=[validity, gen_features])
 
-# 2. Learning Rate Schedule
-def lr_schedule(epoch):
-    if epoch < 10: return 1e-4
-    elif epoch < 30: return 5e-5
-    else: return 1e-5
+# Load and preprocess data (same as before)
+lr_list = os.listdir("LR")
+lr_images = [cv2.cvtColor(cv2.imread("LR/"+img), cv2.COLOR_BGR2RGB) for img in lr_list]
+hr_list = os.listdir("HR")
+hr_images = [cv2.cvtColor(cv2.imread("HR/"+img), cv2.COLOR_BGR2RGB) for img in hr_list]
+os.makedirs('GAN2', exist_ok=True)
+lr_images = np.array(lr_images) / 255.
+hr_images = np.array(hr_images) / 255.
 
-# ==================== MAIN TRAINING LOOP ====================
-
-# Load and preprocess data
-lr_images = np.array([cv2.cvtColor(cv2.imread(f"LR/{img}"), cv2.COLOR_BGR2RGB)/255. 
-                     for img in os.listdir("LR")])
-hr_images = np.array([cv2.cvtColor(cv2.imread(f"HR/{img}"), cv2.COLOR_BGR2RGB)/255. 
-                     for img in os.listdir("HR")])
-
-lr_train, lr_test, hr_train, hr_test = train_test_split(lr_images, hr_images, test_size=0.2)
+lr_train, lr_test, hr_train, hr_test = train_test_split(lr_images, hr_images, test_size=0.33, random_state=42)
 
 # Build models
-generator = create_gen(Input(lr_train.shape[1:]))
-discriminator = create_disc(Input(hr_train.shape[1:]))
-vgg = Model(inputs=VGG19(weights="imagenet", include_top=False, 
-                        input_shape=hr_train.shape[1:]).inputs,
-           outputs=VGG19().layers[10].output)
+hr_shape = (hr_train.shape[1], hr_train.shape[2], hr_train.shape[3])
+lr_shape = (lr_train.shape[1], lr_train.shape[2], lr_train.shape[3])
+
+lr_ip = Input(shape=lr_shape)
+hr_ip = Input(shape=hr_shape)
+
+generator = create_gen(lr_ip, num_rrca_blocks=16)  # Try 5 or 10 blocks
+generator.summary()
+
+discriminator = create_disc(hr_ip)
+discriminator.compile(loss="binary_crossentropy", optimizer="adam", metrics=['accuracy'])
+discriminator.summary()
+
+vgg = build_vgg((128,128,3))
 vgg.trainable = False
 
-# Compile with WGAN-GP
-optimizer = tf.keras.optimizers.Adam(1e-4, beta_1=0.5, clipnorm=1.0)
-gan_model = Model([generator.input, discriminator.input],
-                 [discriminator(generator.output), vgg(generator.output)])
-gan_model.compile(optimizer=optimizer,
-                 loss=[generator_loss, 'mae'],
-                 loss_weights=[1e-3, 1])
+gan_model = create_comb(generator, discriminator, vgg, lr_ip, hr_ip)
+gan_model.compile(loss=["binary_crossentropy", "mse"], loss_weights=[1e-3, 1], optimizer="adam")
 
-# Training
-batch_size = 8
-epochs = 50
-os.makedirs('GAN2', exist_ok=True)
-
-for epoch in range(epochs):
-    K.set_value(gan_model.optimizer.lr, lr_schedule(epoch))
+# Training loop (same as before but with adjusted parameters)
+batch_size = 8 
+train_lr_batches = []
+train_hr_batches = []
+for it in range(int(hr_train.shape[0] / batch_size)):
+    start_idx = it * batch_size
+    end_idx = start_idx + batch_size
+    train_hr_batches.append(hr_train[start_idx:end_idx])
+    train_lr_batches.append(lr_train[start_idx:end_idx])
     
-    for batch in tqdm(range(len(lr_train)//batch_size)):
-        lr_batch = lr_train[batch*batch_size:(batch+1)*batch_size]
-        hr_batch = hr_train[batch*batch_size:(batch+1)*batch_size]
+    
+epochs = 50
+#Enumerate training over epochs
+for e in range(epochs):
+    fake_label = np.zeros((batch_size, 1)) # Assign a label of 0 to all fake (generated images)
+    real_label = np.ones((batch_size, 1)) # Assign a label of 1 to all real images.
+    
+    #Create empty lists to populate gen and disc losses. 
+    g_losses = []
+    d_losses = []
+    g_loss_log = []
+    d_loss_log = [] 
+
+    
+    #Enumerate training over batches. 
+    for b in tqdm(range(len(train_hr_batches))):
+        lr_imgs = train_lr_batches[b]
+        hr_imgs = train_hr_batches[b]
         
-        # Train Discriminator
-        fake_images = generator.predict(lr_batch, verbose=0)
-        with tf.GradientTape() as disc_tape:
-            real_output = discriminator(hr_batch, training=True)
-            fake_output = discriminator(fake_images, training=True)
-            gp = gradient_penalty(discriminator, hr_batch, fake_images, batch_size)
-            d_loss = discriminator_loss(real_output, fake_output, gp)
+        fake_imgs = generator.predict_on_batch(lr_imgs)  
+        discriminator.trainable = True
+        d_loss_gen = discriminator.train_on_batch(fake_imgs, fake_label)
+        d_loss_real = discriminator.train_on_batch(hr_imgs, real_label) 
+        discriminator.trainable = False
+         
+        d_loss = 0.5 * np.add(d_loss_gen, d_loss_real) 
+        image_features = vgg.predict(hr_imgs)
+     
+        g_loss, _, _ = gan_model.train_on_batch([lr_imgs, hr_imgs], [real_label, image_features])
         
-        # Train Generator (every 2 steps)
-        if batch % 2 == 0:
-            with tf.GradientTape() as gen_tape:
-                fake_images = generator(lr_batch, training=True)
-                vgg_features = vgg(hr_batch)
-                g_loss, _, _ = gan_model([lr_batch, hr_batch], 
-                                       [tf.ones((batch_size,1)), vgg_features])
+        d_losses.append(d_loss)
+        g_losses.append(g_loss)
         
-        # Apply gradients with clipping
-        disc_grads = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-        optimizer.apply_gradients(zip(disc_grads, discriminator.trainable_variables))
-        
-        if batch % 2 == 0:
-            gen_grads = gen_tape.gradient(g_loss, generator.trainable_variables)
-            optimizer.apply_gradients(zip(gen_grads, generator.trainable_variables))
-    with open("training_log2.txt", "a") as f:
-        f.write(f"Epoch {epoch+1}: G_Loss={g_loss:.5f}, D_Loss={d_loss:.5f}\n")
-    # Save checkpoints
-    if (epoch+1) % 5 == 0:
-        generator.save(f"GAN2/gen_e_{epoch+1}.keras")
+    g_losses = np.array(g_losses)
+    d_losses = np.array(d_losses)
+    g_loss = np.sum(g_losses, axis=0) / len(g_losses)
+    d_loss = np.sum(d_losses, axis=0) / len(d_losses)
+    g_loss_epoch = np.mean(g_losses)
+    d_loss_epoch = np.mean(d_losses)
+    g_loss_log.append(g_loss_epoch)
+    d_loss_log.append(d_loss_epoch) 
+    
+    print("Epoch : ", e+1, " Completed.." )
+    if (e + 1) % 5 == 0:
+        print("epoch:", e+1 ,"g_loss:", g_loss, "d_loss:", d_loss)
+        generator.save("GAN2/gen_e_"+ str(e+1) +".keras")
+    
+    with open("training_log2.txt", "a") as log_file:
+        log_file.write(f"Epoch {e+1}: G_Loss={g_loss_epoch:.5f}, D_Loss={d_loss_epoch:.5f} -> g_loss = {g_loss}, d_loss = {d_loss}\n")
