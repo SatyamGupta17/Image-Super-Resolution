@@ -208,8 +208,8 @@ for e in range(epochs):
     d_loss_log.append(d_loss_epoch) 
     
     print("Epoch : ", e+1, " Completed.." )
+    print("epoch:", e+1 ,"g_loss:", g_loss, "d_loss:", d_loss)
     if (e + 1) % 5 == 0:
-        print("epoch:", e+1 ,"g_loss:", g_loss, "d_loss:", d_loss)
         generator.save("GAN2/gen_e_"+ str(e+1) +".keras")
     
     with open("training_log2.txt", "a") as log_file:

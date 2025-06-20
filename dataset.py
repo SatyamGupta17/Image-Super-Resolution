@@ -14,6 +14,7 @@ for img in os.listdir(train_dir):
     if count > 15000:
         break
     count+=1
+    
     # Skip if the image can't be read
     if img_arr is None:
         continue
